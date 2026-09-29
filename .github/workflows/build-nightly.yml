@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: diabl0w/DFRoot
-          ref: main
+          ref: master
           path: DFRoot
 
       - name: Set up Java
