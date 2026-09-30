@@ -60,14 +60,18 @@ jobs:
           ./build.sh
 
       - name: Prepare APK
+        id: apk
         run: |
-          cp DFRoot/dirtyfrag.apk DFRoot.apk
-          ls -lh DFRoot.apk
+          SHA=$(git -C DFRoot rev-parse --short=8 HEAD)
+          APK="DFRoot-${SHA}.apk"
+          cp DFRoot/dirtyfrag.apk "$APK"
+          echo "filename=$APK" >> "$GITHUB_OUTPUT"
+          ls -lh "$APK"
       - name: Upload APK artifact
         uses: actions/upload-artifact@v7
         with:
           name: DFRoot-APK
-          path: DFRoot.apk
+          path: ${{ steps.apk.outputs.filename }}
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
@@ -95,6 +99,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload nightly \
-            DFRoot.apk \
+            "${{ steps.apk.outputs.filename }}" \
             --repo "${{ github.repository }}" \
             --clobber
