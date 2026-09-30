@@ -23,7 +23,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
 
@@ -43,40 +42,27 @@ jobs:
           import re
 
           wrapper = Path("gradle/wrapper/gradle-wrapper.properties")
+          wrapper.write_text(re.sub(
+              r"gradle-[0-9.]+-bin\.zip",
+              "gradle-8.11.1-bin.zip",
+              wrapper.read_text(),
+          ))
 
-          if wrapper.exists():
-              text = wrapper.read_text()
-              text = re.sub(
-                  r"gradle-[0-9.]+-bin\.zip",
-                  "gradle-8.11.1-bin.zip",
-                  text,
-              )
-              wrapper.write_text(text)
-
-          for filename in (
-              "build.gradle.kts",
-              "gradle/libs.versions.toml",
-          ):
+          for filename in ("build.gradle.kts", "gradle/libs.versions.toml"):
               path = Path(filename)
-
-              if path.exists():
-                  text = path.read_text()
-                  text = text.replace('"8.7.3"', '"8.10.1"')
-                  path.write_text(text)
+              path.write_text(path.read_text().replace('"8.7.3"', '"8.10.1"'))
           PY
 
       - name: Build DFRoot APK
         working-directory: DFRoot
         run: |
-          chmod +x gradlew
-          chmod +x build.sh
+          chmod +x gradlew build.sh
           ./build.sh
 
       - name: Prepare APK
         run: |
           cp DFRoot/dirtyfrag.apk DFRoot.apk
           ls -lh DFRoot.apk
-
       - name: Upload APK artifact
         uses: actions/upload-artifact@v7
         with:
@@ -93,7 +79,6 @@ jobs:
           if gh release view nightly \
             --repo "${{ github.repository }}" \
             >/dev/null 2>&1; then
-
             gh release edit nightly \
               --repo "${{ github.repository }}" \
               --title "DFRoot Nightly" \
@@ -105,7 +90,6 @@ jobs:
               --notes "Latest automatic build from diabl0w/DFRoot." \
               --prerelease
           fi
-
       - name: Upload APK to nightly release
         env:
           GH_TOKEN: ${{ github.token }}
