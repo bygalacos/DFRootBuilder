@@ -112,6 +112,7 @@ jobs:
 
           gh release create "${{ steps.release.outputs.tag }}" \
             "${{ steps.release.outputs.filename }}" \
+            "DFRootBuilder/KernelSU_Manager/KernelSU_v3.3.0-52-g08a3b087_32653-release.apk" \
             --repo "${{ github.repository }}" \
             --title "${{ steps.release.outputs.title }}" \
             --notes-file release-notes.md
