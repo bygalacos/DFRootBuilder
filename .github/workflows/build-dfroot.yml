@@ -2,6 +2,8 @@ name: Build DFRoot
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 */4 * * *"
 
 permissions:
   contents: write
@@ -12,34 +14,73 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      # Checkout this repository so we can read/write latest-sha.txt
+      - name: Checkout DFRootBuilder
+        uses: actions/checkout@v7
+        with:
+          path: DFRootBuilder
+
+      # Checkout latest upstream DFRoot source
       - name: Checkout DFRoot source
         uses: actions/checkout@v7
         with:
           repository: diabl0w/DFRoot
           path: DFRoot
 
+      # Compare current upstream SHA with the last successfully built SHA
+      - name: Check DFRoot SHA
+        id: check
+        shell: bash
+        run: |
+          CURRENT_SHA=$(git -C DFRoot rev-parse HEAD)
+
+          if [ -f "DFRootBuilder/latest-sha.txt" ]; then
+            LAST_SHA=$(tr -d '[:space:]' < DFRootBuilder/latest-sha.txt)
+          else
+            LAST_SHA=""
+          fi
+
+          echo "Current DFRoot SHA: $CURRENT_SHA"
+          echo "Last built SHA:      ${LAST_SHA:-<none>}"
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual workflow run - forcing build."
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          elif [ "$CURRENT_SHA" = "$LAST_SHA" ]; then
+            echo "DFRoot SHA has not changed. Build will be skipped."
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "New DFRoot SHA detected. Build will continue."
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "current_sha=$CURRENT_SHA" >> "$GITHUB_OUTPUT"
+
       - name: Set up Java
+        if: steps.check.outputs.should_build == 'true'
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Android SDK
+        if: steps.check.outputs.should_build == 'true'
         uses: android-actions/setup-android@v4
 
       - name: Build DFRoot APK
+        if: steps.check.outputs.should_build == 'true'
         working-directory: DFRoot
         run: |
           chmod +x gradlew build.sh
           ./build.sh
 
       - name: Prepare release
+        if: steps.check.outputs.should_build == 'true'
         id: release
         run: |
           VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' DFRoot/app/build.gradle.kts)
           SHA=$(git -C DFRoot rev-parse --short=8 HEAD)
           COMMIT_MESSAGE=$(git -C DFRoot log -1 --pretty=%s)
-
           APK="DFRoot_${VERSION}_${SHA}.apk"
           TITLE="DFRoot ${VERSION} ${SHA}"
           TAG="v${VERSION}-${SHA}"
@@ -58,6 +99,7 @@ jobs:
           ls -lh "$APK"
 
       - name: Create GitHub release
+        if: steps.check.outputs.should_build == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -73,3 +115,23 @@ jobs:
             --repo "${{ github.repository }}" \
             --title "${{ steps.release.outputs.title }}" \
             --notes-file release-notes.md
+
+      # Update SHA only after build + release succeeded
+      - name: Update latest DFRoot SHA
+        if: steps.check.outputs.should_build == 'true' && success()
+        working-directory: DFRootBuilder
+        shell: bash
+        run: |
+          echo "${{ steps.check.outputs.current_sha }}" > latest-sha.txt
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add latest-sha.txt
+
+          if git diff --cached --quiet; then
+            echo "latest-sha.txt is already up to date."
+          else
+            git commit -m "Update latest DFRoot SHA"
+            git push
+          fi
