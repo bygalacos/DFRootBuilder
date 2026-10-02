@@ -6,7 +6,7 @@ This repository builds the latest DFRoot source using the upstream project's own
 
 ## Releases
 
-Built APKs are available from the repository's [Releases](https://github.com/bygalacos/DFRootBuilder/releases) section.
+APK builds are generated automatically every 4 hours using GitHub Actions and are available in the repository's [Releases](https://github.com/bygalacos/DFRootBuilder/releases) section.
 
 Each release corresponds to a specific upstream DFRoot commit, allowing the exact source revision used for a build to be identified from the APK filename and release information.
 
