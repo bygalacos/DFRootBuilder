@@ -1,4 +1,4 @@
-name: Build DFRoot
+name: Build DFRoot - Debug
 
 on:
   workflow_dispatch:
