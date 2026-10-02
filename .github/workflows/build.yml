@@ -1,0 +1,75 @@
+name: Build DFRoot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout DFRoot source
+        uses: actions/checkout@v7
+        with:
+          repository: diabl0w/DFRoot
+          path: DFRoot
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Build DFRoot APK
+        working-directory: DFRoot
+        run: |
+          chmod +x gradlew build.sh
+          ./build.sh
+
+      - name: Prepare release
+        id: release
+        run: |
+          VERSION=$(grep -oP 'versionName\s*=\s*"\K[^"]+' DFRoot/app/build.gradle.kts)
+          SHA=$(git -C DFRoot rev-parse --short=8 HEAD)
+          COMMIT_MESSAGE=$(git -C DFRoot log -1 --pretty=%s)
+
+          APK="DFRoot_${VERSION}_${SHA}.apk"
+          TITLE="DFRoot ${VERSION} ${SHA}"
+          TAG="v${VERSION}-${SHA}"
+
+          cp DFRoot/dirtyfrag.apk "$APK"
+
+          {
+            echo "version=$VERSION"
+            echo "sha=$SHA"
+            echo "filename=$APK"
+            echo "title=$TITLE"
+            echo "tag=$TAG"
+            echo "commit_message=$COMMIT_MESSAGE"
+          } >> "$GITHUB_OUTPUT"
+
+          ls -lh "$APK"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > release-notes.md <<EOF
+          DFRoot builder by bygalacos
+          Version: ${{ steps.release.outputs.version }}
+          Commit: https://github.com/diabl0w/DFRoot/commit/$(git -C DFRoot rev-parse HEAD)
+          ${{ steps.release.outputs.commit_message }}
+          EOF
+
+          gh release create "${{ steps.release.outputs.tag }}" \
+            "${{ steps.release.outputs.filename }}" \
+            --repo "${{ github.repository }}" \
+            --title "${{ steps.release.outputs.title }}" \
+            --notes-file release-notes.md
