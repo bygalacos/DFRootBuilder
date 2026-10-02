@@ -63,7 +63,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cat > release-notes.md <<EOF
-          DFRoot builder by bygalacos
+          DFRootBuilder by bygalacos
           Version: ${{ steps.release.outputs.version }}
           Commit: https://github.com/diabl0w/DFRoot/commit/$(git -C DFRoot rev-parse HEAD)
           ${{ steps.release.outputs.commit_message }}
